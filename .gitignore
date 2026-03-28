@@ -39,3 +39,12 @@
 
 # debug information files
 *.dwo
+
+# Python
+__pycache__
+
+# System files
+.DS_Store
+
+# Build executables
+bin

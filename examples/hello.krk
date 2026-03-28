@@ -1,0 +1,7 @@
+# hello.krk — Minimal Kuroko script for Godot
+# Run with: Kuroko.execute_file("res://examples/hello.krk")
+
+print("Hello from Kuroko!")
+
+# Return a value to Godot
+42

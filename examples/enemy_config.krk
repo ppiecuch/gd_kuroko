@@ -1,0 +1,31 @@
+# enemy_config.krk — Data-driven configuration script
+#
+# Usage from GDScript:
+#   var config = load("res://examples/enemy_config.krk")
+#   var inst = config.instance_create_ref(null)
+#   var stats = inst.call_method("scale_for_level", [3])
+
+$extends Resource
+
+$export var enemy_name: String = "Goblin"
+$export var base_hp: int = 30
+$export var attack_power: float = 5.0
+$export(String, ENUM, "melee,ranged,magic") var attack_type = "melee"
+
+$export def scale_for_level(level):
+    """Scale enemy stats for a given level."""
+    return {
+        'hp': base_hp + level * 10,
+        'attack': attack_power * (1.0 + level * 0.15),
+        'name': enemy_name + " Lv." + str(level),
+        'type': attack_type,
+    }
+
+$export def get_loot_table(level):
+    """Generate loot table based on level."""
+    items = ['potion', 'gold']
+    if level >= 3:
+        items.append('rare_gem')
+    if level >= 5:
+        items.append('legendary_sword')
+    return items

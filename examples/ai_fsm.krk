@@ -1,0 +1,57 @@
+# ai_fsm.krk — AI finite state machine
+#
+# Demonstrates signals, state management, and lifecycle methods.
+
+$extends Node
+
+$export(String, ENUM, "idle,patrol,chase,attack") var initial_state = "idle"
+$signal state_changed(old_state, new_state)
+
+current_state = initial_state
+state_timer = 0.0
+
+def _ready():
+    current_state = initial_state
+    state_timer = 0.0
+    print("AI FSM started in state: ", current_state)
+
+def _process(delta):
+    state_timer += delta
+    if current_state == "idle":
+        _do_idle(delta)
+    elif current_state == "patrol":
+        _do_patrol(delta)
+    elif current_state == "chase":
+        _do_chase(delta)
+    elif current_state == "attack":
+        _do_attack(delta)
+
+$export def transition_to(new_state):
+    """Change state and emit signal."""
+    if new_state != current_state:
+        let old = current_state
+        current_state = new_state
+        state_timer = 0.0
+        print("State: ", old, " -> ", new_state)
+
+$export def get_current_state():
+    return current_state
+
+$export def get_state_duration():
+    return state_timer
+
+# Internal state handlers (not exposed to Godot)
+def _do_idle(delta):
+    if state_timer > 3.0:
+        transition_to("patrol")
+
+def _do_patrol(delta):
+    if state_timer > 5.0:
+        transition_to("idle")
+
+def _do_chase(delta):
+    pass
+
+def _do_attack(delta):
+    if state_timer > 1.0:
+        transition_to("chase")

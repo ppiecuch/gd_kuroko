@@ -1,0 +1,63 @@
+# player.krk — Example annotated Kuroko script for Godot
+#
+# $ annotations are parsed by Godot and stripped before Kuroko compilation.
+# "$export def" keeps the def, "$export var" is metadata only.
+
+$extends KinematicBody2D
+$tool
+
+$export var speed: float = 200.0 setget set_speed
+$export var jump_force: float = -400.0
+$export(int, RANGE, "1,10") var max_health = 5 setget set_max_health, get_max_health
+$export(String, MULTILINE) var backstory = ""
+
+$signal health_changed(old_value, new_value)
+$signal died()
+
+health = max_health
+velocity = [0.0, 0.0]
+
+def _ready():
+    health = max_health
+    print("Player ready with speed: ", speed)
+
+def _process(delta):
+    # Gravity
+    velocity[1] += 980.0 * delta
+
+    # Simple horizontal movement
+    if velocity[0] > 0:
+        velocity[0] = max(0, velocity[0] - 100 * delta)
+    elif velocity[0] < 0:
+        velocity[0] = min(0, velocity[0] + 100 * delta)
+
+$export def take_damage(amount):
+    """Apply damage and emit signals."""
+    let old = health
+    health = max(0, health - amount)
+    if health <= 0:
+        pass  # emit_signal("died")
+    return health
+
+$export def heal(amount):
+    """Restore health up to max."""
+    let old = health
+    health = min(max_health, health + amount)
+    return health
+
+# Setget functions (called automatically when property is set/get via Godot).
+def set_speed(value):
+    speed = max(0.0, min(value, 1000.0))
+
+def set_max_health(value):
+    let old_max = max_health
+    max_health = max(1, value)
+    if health > max_health:
+        health = max_health
+
+def get_max_health():
+    return max_health
+
+def _internal_helper():
+    # No $ annotation — invisible to Godot.
+    return speed * 2

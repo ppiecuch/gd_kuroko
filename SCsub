@@ -1,0 +1,143 @@
+#!/usr/bin/env python
+
+Import("env")
+Import("env_modules")
+
+# --- Kuroko VM (C library) ---
+
+env_kuroko_vm = env_modules.Clone()
+
+# Include paths: src/ for private headers, src/ parent for <kuroko/vm.h> style includes
+env_kuroko_vm.Prepend(CPPPATH=["#modules/gd_kuroko/src"])
+
+# Defines for embedded use
+env_kuroko_vm.Append(CPPDEFINES=[
+    "KRK_STATIC_ONLY",        # No dlopen/dlsym dynamic module loading
+    "KRK_DISABLE_THREADS",    # No threading (use Godot threads)
+    "KRK_NO_CALLGRIND",       # No profiling output
+])
+
+# Suppress warnings from upstream C code
+env_kuroko_vm.Append(CFLAGS=[
+    "-Wno-unused-parameter",
+    "-Wno-sign-compare",
+    "-Wno-missing-field-initializers",
+    "-Wno-implicit-fallthrough",
+])
+
+# Core VM sources (28 files)
+kuroko_sources = [
+    # Core engine
+    "src/vm.c",
+    "src/compiler.c",
+    "src/scanner.c",
+    "src/chunk.c",
+    "src/value.c",
+    "src/memory.c",
+    "src/object.c",
+    "src/table.c",
+    "src/exceptions.c",
+    "src/builtins.c",
+    "src/debug.c",
+    "src/parseargs.c",
+    "src/threads.c",
+    "src/sys.c",
+    # Object type implementations
+    "src/obj_base.c",
+    "src/obj_str.c",
+    "src/obj_list.c",
+    "src/obj_tuple.c",
+    "src/obj_dict.c",
+    "src/obj_set.c",
+    "src/obj_bytes.c",
+    "src/obj_range.c",
+    "src/obj_slice.c",
+    "src/obj_function.c",
+    "src/obj_gen.c",
+    "src/obj_long.c",
+    "src/obj_numeric.c",
+    "src/obj_typing.c",
+    # Note: fileio/os/time module inits are in kuroko_godot_modules.cpp (C++ glue),
+    # compiled as part of the glue library, not the C VM library.
+]
+
+# EXCLUDED (not in source list):
+# src/kuroko.c     — standalone REPL (has main())
+# src/fileio.c     — file I/O module
+# src/os.c         — os module
+# src/time.c       — time module
+# src/modules/*    — optional C modules (math, random, socket, etc.)
+# src/vendor/*     — REPL line editing
+
+lib_vm = env_kuroko_vm.Library("gd_kuroko_vm", kuroko_sources)
+env.Prepend(LIBS=[lib_vm])
+
+# --- C++ Glue (Godot integration) ---
+
+env_kuroko_glue = env_modules.Clone()
+env_kuroko_glue.Prepend(CPPPATH=["#modules/gd_kuroko/src"])
+env_kuroko_glue.Append(CPPDEFINES=[
+    "KRK_STATIC_ONLY",
+    "KRK_DISABLE_THREADS",
+    "KRK_NO_CALLGRIND",
+])
+
+glue_sources = []
+env_kuroko_glue.add_source_files(glue_sources, "*.cpp")
+
+lib_glue = env_kuroko_glue.add_library("gd_kuroko_glue", glue_sources)
+env.Prepend(LIBS=[lib_glue])
+
+# --- Standalone Tools (built to bin/) ---
+# Build the kuroko CLI tools (REPL, bytecode compiler, sandbox) as standalone
+# executables. Uses a separate build directory to avoid object file conflicts
+# with the embedded VM library.
+
+if env["tools"] and env["platform"] in ["osx", "x11", "windows"]:
+    env_tools = env_kuroko_vm.Clone()
+    env_tools.Append(CPPPATH=["#modules/gd_kuroko/tools"])
+
+    # Use a tools/ variant directory for object files to avoid conflicts.
+    tools_build_dir = "tools_build/"
+
+    # Full VM sources for standalone tools (with fileio/os/time, no stubs).
+    tool_vm_sources = [s for s in kuroko_sources if "module_stubs" not in s] + [
+        "src/fileio.c",
+        "src/os.c",
+        "src/time.c",
+        "src/vendor/rline.c",
+    ]
+
+    # Build tool sources into a separate directory to avoid duplicate targets.
+    tool_vm_objs = []
+    for src in tool_vm_sources:
+        obj_name = tools_build_dir + src.replace("/", "_").replace(".c", "")
+        tool_vm_objs.append(env_tools.Object(target=obj_name, source=src))
+
+    tool_libs = []
+    if env["platform"] != "windows":
+        tool_libs.append("m")
+
+    # Bytecode compiler: tools/compile.c -> bin/kuroko-compile
+    compile_obj = env_tools.Object(target=tools_build_dir + "compile", source="tools/compile.c")
+    env_tools.Program(
+        target="#modules/gd_kuroko/bin/kuroko-compile",
+        source=[compile_obj] + tool_vm_objs,
+        LIBS=tool_libs,
+    )
+
+    # Sandbox: tools/sandbox.c -> bin/kuroko-sandbox
+    sandbox_obj = env_tools.Object(target=tools_build_dir + "sandbox", source="tools/sandbox.c")
+    env_tools.Program(
+        target="#modules/gd_kuroko/bin/kuroko-sandbox",
+        source=[sandbox_obj] + tool_vm_objs,
+        LIBS=tool_libs,
+    )
+
+    # REPL: src/kuroko.c -> bin/kuroko
+    repl_obj = env_tools.Object(target=tools_build_dir + "kuroko_main", source="src/kuroko.c")
+    env_tools.Program(
+        target="#modules/gd_kuroko/bin/kuroko",
+        source=[repl_obj] + tool_vm_objs,
+        LIBS=tool_libs,
+    )

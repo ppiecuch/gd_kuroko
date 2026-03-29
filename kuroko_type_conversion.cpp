@@ -89,6 +89,9 @@ Variant KurokoTypeConversion::krk_value_to_variant(KrkValue p_value) {
 	if (IS_INSTANCE(p_value) && AS_INSTANCE(p_value)->_class == krk_vm.baseClasses->dictClass) {
 		KrkTable *table = AS_DICT(p_value);
 		Dictionary dict;
+		if (table->count == 0 || table->entries == NULL) {
+			return Variant(dict);
+		}
 		for (size_t i = 0; i <= table->capacity; i++) {
 			KrkTableEntry *entry = &table->entries[i];
 			if (IS_KWARGS(entry->key)) {
@@ -354,7 +357,9 @@ TEST_SUITE("[[gd_kuroko]] TypeConversion") {
 		KrkValue v = KurokoTypeConversion::variant_to_krk_value(Variant(dict));
 		Variant r = KurokoTypeConversion::krk_value_to_variant(v);
 		CHECK(r.get_type() == Variant::DICTIONARY);
-		CHECK(((Dictionary)r).size() == 0);
+		if (r.get_type() == Variant::DICTIONARY) {
+			CHECK(((Dictionary)r).size() == 0);
+		}
 	}
 
 	TEST_CASE("[kuroko-conv] unsupported type becomes string") {

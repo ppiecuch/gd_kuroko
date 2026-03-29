@@ -137,8 +137,32 @@ void KurokoAnnotationParser::_parse_export_annotation(const String &p_content, K
 		String hint_part = content.substr(7, paren_end - 7); // Inside parentheses.
 		String rest = content.substr(paren_end + 1).strip_edges();
 
-		// Parse hint arguments.
-		Vector<String> hint_args = hint_part.split(",");
+		// Parse hint arguments, respecting quoted strings (commas inside quotes are not delimiters).
+		Vector<String> hint_args;
+		{
+			bool in_quotes = false;
+			char quote_char = 0;
+			String current;
+			for (int i = 0; i < hint_part.length(); i++) {
+				CharType c = hint_part[i];
+				if (!in_quotes && (c == '"' || c == '\'')) {
+					in_quotes = true;
+					quote_char = c;
+					current += c;
+				} else if (in_quotes && c == quote_char) {
+					in_quotes = false;
+					current += c;
+				} else if (!in_quotes && c == ',') {
+					hint_args.push_back(current);
+					current = String();
+				} else {
+					current += c;
+				}
+			}
+			if (!current.empty()) {
+				hint_args.push_back(current);
+			}
+		}
 		if (hint_args.size() >= 1) {
 			prop.type = _parse_type_name(hint_args[0].strip_edges());
 		}

@@ -43,6 +43,10 @@
 #include "core/project_settings.h"
 
 #define new new_size
+#ifndef __cplusplus
+// _Generic (C11) is used in util.h for KRK_DOC; not available in C++.
+#endif
+#define KRK_NO_DOCUMENTATION
 extern "C" {
 #include <kuroko/kuroko.h>
 #include <kuroko/vm.h>
@@ -51,6 +55,7 @@ extern "C" {
 #include <kuroko/table.h>
 #include <kuroko/util.h>
 }
+#undef KRK_NO_DOCUMENTATION
 #undef new
 // Restore Godot macros after kuroko headers.
 #undef vm

@@ -43,9 +43,8 @@
 #include "core/project_settings.h"
 
 #define new new_size
-#ifndef __cplusplus
-// _Generic (C11) is used in util.h for KRK_DOC; not available in C++.
-#endif
+// _Generic (C11) is not available in C++; provide a C++-compatible KRK_DOC
+// using function overloading before including util.h.
 #define KRK_NO_DOCUMENTATION
 extern "C" {
 #include <kuroko/kuroko.h>
@@ -56,6 +55,12 @@ extern "C" {
 #include <kuroko/util.h>
 }
 #undef KRK_NO_DOCUMENTATION
+#undef KRK_DOC
+// C++ overload-based KRK_DOC replacement
+static inline void _krk_setDoc(KrkClass *thing, const char *text, size_t size) { krk_attachNamedObject(&thing->methods, "__doc__", (KrkObj*)krk_copyString(text, size)); }
+static inline void _krk_setDoc(KrkInstance *thing, const char *text, size_t size) { krk_attachNamedObject(&thing->fields, "__doc__", (KrkObj*)krk_copyString(text, size)); }
+static inline void _krk_setDoc(KrkNative *thing, const char *text, size_t size) { (void)size; thing->doc = text; }
+#define KRK_DOC(thing, text) (_krk_setDoc(thing, text, sizeof(text)-1), thing);
 #undef new
 // Restore Godot macros after kuroko headers.
 #undef vm
